@@ -1,38 +1,38 @@
-def ares_response(message):
-    message = message.lower().strip()
+class ARES:
+    def __init__(self):
+        self.name = "ARES"
 
-    if message in ["hello", "hi", "hey"]:
-        return "Hello. ARES systems are online."
+    def respond(self, message):
+        message = message.lower().strip()
 
-    if "your name" in message:
-        return "I am ARES, your personal AI assistant."
+        if message in ["hello", "hi", "hey"]:
+            return "Hello. I'm ARES. How can I help?"
 
-    if "how are you" in message:
-        return "All systems operational."
+        if "who are you" in message:
+            return "I'm ARES, your personal AI assistant."
 
-    if message in ["bye", "exit", "quit"]:
-        return None
+        if "how are you" in message:
+            return "I'm online and ready."
 
-    return "I don't know how to do that yet."
+        if message in ["bye", "exit", "quit"]:
+            return None
 
+        return "I understand the request, but my intelligence systems are still being developed."
 
-def main():
-    print("=" * 45)
-    print("              ARES v0.1")
-    print("          SYSTEMS ONLINE")
-    print("=" * 45)
+    def run(self):
+        print("=" * 40)
+        print("              ARES")
+        print("        Personal AI Assistant")
+        print("=" * 40)
+        print("Type 'exit' to shut down ARES.\n")
 
-    while True:
-        user_message = input("\nYou: ")
+        while True:
+            user_input = input("You > ")
 
-        response = ares_response(user_message)
+            response = self.respond(user_input)
 
-        if response is None:
-            print("ARES: Goodbye.")
-            break
+            if response is None:
+                print("ARES > Goodbye.")
+                break
 
-        print(f"ARES: {response}")
-
-
-if __name__ == "__main__":
-    main()
+            print(f"ARES > {response}")
