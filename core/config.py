@@ -1,0 +1,4 @@
+APP_NAME = "ARES"
+APP_VERSION = "0.2.0"
+
+DEBUG = True
