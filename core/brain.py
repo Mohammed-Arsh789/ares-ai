@@ -1,23 +1,25 @@
+from core.ai import AIClient
+from core.router import Router
+
+
 class ARES:
     def __init__(self):
         self.name = "ARES"
+        self.router = Router()
+        self.ai = AIClient()
 
     def respond(self, message):
-        message = message.lower().strip()
+        message = message.strip()
 
-        if message in ["hello", "hi", "hey"]:
-            return "Hello. I'm ARES. How can I help?"
+        if not message:
+            return "I'm listening."
 
-        if "who are you" in message:
-            return "I'm ARES, your personal AI assistant."
+        intent = self.router.route(message)
 
-        if "how are you" in message:
-            return "I'm online and ready."
-
-        if message in ["bye", "exit", "quit"]:
+        if intent == "exit":
             return None
 
-        return "I understand the request, but my intelligence systems are still being developed."
+        return self.ai.ask(message)
 
     def run(self):
         print("=" * 40)
