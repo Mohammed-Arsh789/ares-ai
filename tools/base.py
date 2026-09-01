@@ -1,5 +1,18 @@
-class Tool:
-    name = "base"
+from abc import ABC, abstractmethod
+from typing import Any
 
-    def run(self, **kwargs):
+
+class Tool(ABC):
+    """
+    Base class for every ARES tool.
+    """
+
+    name = "unnamed"
+    description = "No description provided."
+
+    @abstractmethod
+    def run(self, **kwargs) -> Any:
+        """
+        Execute the tool.
+        """
         raise NotImplementedError
