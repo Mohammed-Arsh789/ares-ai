@@ -1,43 +1,51 @@
-from core.ai import AIClient
+from core.brain import ARES
 
 
 def main():
 
-    ai = AIClient()
+    ares = ARES()
 
-    print("=" * 50)
+    print("=" * 55)
     print("ARES")
     print("Artificial Reasoning & Enhanced System")
-    print("=" * 50)
+    print("=" * 55)
     print("Type 'exit' to quit.")
-    print("Type 'reset' to clear conversation.")
+    print("Type 'reset' to reset conversation.")
     print()
 
-    while True:
+    try:
 
-        try:
+        while True:
+
             user_input = input("You > ").strip()
 
-        except KeyboardInterrupt:
-            print("\nARES > Goodbye.")
-            break
+            if not user_input:
+                continue
 
-        if not user_input:
-            continue
+            if user_input.lower() == "exit":
 
-        if user_input.lower() == "exit":
-            print("ARES > Goodbye.")
-            break
+                print("ARES > Goodbye.")
+                break
 
-        if user_input.lower() == "reset":
-            ai.reset()
-            print("ARES > Conversation reset.")
-            continue
+            if user_input.lower() == "reset":
 
-        response = ai.ask(user_input)
+                ares.ai.reset()
 
-        print(f"ARES > {response}")
-        print()
+                print("ARES > Conversation reset.")
+                continue
+
+            response = ares.respond(user_input)
+
+            print(f"ARES > {response}")
+            print()
+
+    except KeyboardInterrupt:
+
+        print("\nARES > Goodbye.")
+
+    finally:
+
+        ares.close()
 
 
 if __name__ == "__main__":
