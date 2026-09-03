@@ -1,66 +1,56 @@
 from ollama import chat
 
-from core.persona import ARES_SYSTEM_PROMPT
+from core.config import OLLAMA_MODEL, MAX_MESSAGES
+from core.personality import ARES_SYSTEM_PROMPT
 
 
 class AIClient:
-    def __init__(self, model="gemma3:4b"):
-        self.model = model
 
-        self.messages = [
+    def __init__(self):
+        self.model = OLLAMA_MODEL
+        self.messages = []
+
+    def reset(self):
+        self.messages = []
+
+    def _trim_history(self):
+        if len(self.messages) > MAX_MESSAGES:
+            self.messages = self.messages[-MAX_MESSAGES:]
+
+    def ask(self, message):
+
+        self.messages.append({
+            "role": "user",
+            "content": message
+        })
+
+        self._trim_history()
+
+        messages = [
             {
                 "role": "system",
-                "content": ARES_SYSTEM_PROMPT,
+                "content": ARES_SYSTEM_PROMPT
             }
         ]
 
-    def ask(self, message):
-        if not message or not message.strip():
-            return "I'm listening."
-
-        self.messages.append(
-            {
-                "role": "user",
-                "content": message.strip(),
-            }
-        )
+        messages.extend(self.messages)
 
         try:
             response = chat(
                 model=self.model,
-                messages=self.messages,
+                messages=messages
             )
 
-            answer = response.message.content.strip()
+            answer = response.message.content
+
+            self.messages.append({
+                "role": "assistant",
+                "content": answer
+            })
+
+            self._trim_history()
+
+            return answer
 
         except Exception as error:
-            # Remove failed user message so the history stays clean.
-            self.messages.pop()
-
-            return f"I couldn't reach my local AI model: {error}"
-
-        self.messages.append(
-            {
-                "role": "assistant",
-                "content": answer,
-            }
-        )
-
-        # Keep system prompt + recent conversation.
-        if len(self.messages) > 21:
-            self.messages = [
-                self.messages[0]
-            ] + self.messages[-20:]
-
-        return answer
-
-    def clear_context(self):
-        self.messages = [
-            {
-                "role": "system",
-                "content": ARES_SYSTEM_PROMPT,
-            }
-        ]
-
-    def conversation(self):
-        return list(self.messages)
+            return f"ARES encountered an AI error: {error}"
