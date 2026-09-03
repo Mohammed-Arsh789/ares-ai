@@ -1,6 +1,8 @@
 from tools.registry import ToolRegistry
+
 from tools.calculator import CalculatorTool
 from tools.weather import WeatherTool
+from tools.web import WebTool
 
 
 class ToolManager:
@@ -16,6 +18,10 @@ class ToolManager:
 
         self.registry.register(
             WeatherTool()
+        )
+
+        self.registry.register(
+            WebTool()
         )
 
     def get(self, name):
