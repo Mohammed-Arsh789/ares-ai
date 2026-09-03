@@ -2,79 +2,94 @@ class Router:
     def route(self, message):
         text = message.lower().strip()
 
-        # Exit
-        if text in ["exit", "quit", "bye"]:
+        if not text:
+            return "conversation"
+
+        if text in {
+            "exit",
+            "quit",
+            "shutdown",
+            "goodbye",
+        }:
             return "exit"
 
-        # Calculator
-        calculator_words = [
+        if self._looks_like_calculation(text):
+            return "calculator"
+
+        if self._looks_like_weather(text):
+            return "weather"
+
+        if self._looks_like_web_search(text):
+            return "web"
+
+        if self._looks_like_file_operation(text):
+            return "files"
+
+        if self._looks_like_system_request(text):
+            return "system"
+
+        return "conversation"
+
+    def _looks_like_calculation(self, text):
+        keywords = [
             "calculate",
             "calculator",
             "solve",
-            "math",
-            "what is",
+            "compute",
         ]
 
-        if any(word in text for word in calculator_words):
-            # Only classify as calculator if it looks like a math request
-            math_symbols = ["+", "-", "*", "/", "%"]
+        if any(word in text for word in keywords):
+            return True
 
-            if any(symbol in text for symbol in math_symbols):
-                return "calculator"
+        math_symbols = ["+", "-", "*", "/", "%"]
 
-            if "calculate" in text or "calculator" in text or "solve" in text:
-                return "calculator"
+        if any(symbol in text for symbol in math_symbols):
+            return any(char.isdigit() for char in text)
 
-        # Weather
-        weather_words = [
+        return False
+
+    def _looks_like_weather(self, text):
+        keywords = [
             "weather",
-            "temperature",
+            "temperature outside",
             "forecast",
-            "rain",
-            "raining",
+            "is it raining",
+            "will it rain",
         ]
 
-        if any(word in text for word in weather_words):
-            return "weather"
+        return any(keyword in text for keyword in keywords)
 
-        # Web / current information
-        web_words = [
+    def _looks_like_web_search(self, text):
+        keywords = [
             "search the web",
             "search online",
-            "look up",
-            "latest",
-            "news",
-            "today",
-            "current",
-            "who won",
+            "look this up",
+            "look it up",
+            "latest news",
+            "current news",
+            "what happened today",
         ]
 
-        if any(word in text for word in web_words):
-            return "web"
+        return any(keyword in text for keyword in keywords)
 
-        # File operations
-        file_words = [
+    def _looks_like_file_operation(self, text):
+        keywords = [
             "open file",
             "read file",
             "create file",
             "delete file",
             "rename file",
-            "file",
+            "list files",
         ]
 
-        if any(word in text for word in file_words):
-            return "files"
+        return any(keyword in text for keyword in keywords)
 
-        # System operations
-        system_words = [
+    def _looks_like_system_request(self, text):
+        keywords = [
             "system information",
-            "python version",
             "system status",
+            "python version",
             "ares status",
         ]
 
-        if any(word in text for word in system_words):
-            return "system"
-
-        # Normal conversation
-        return "conversation"
+        return any(keyword in text for keyword in keywords)
