@@ -2,12 +2,18 @@ from core.ai import AIClient
 from core.memory import Memory
 from core.router import Router
 from core.tool_registry import ToolRegistry
+from core.logger import get_logger
+
 from tools.calculator import calculate
+from tools.weather import get_weather
+from tools.weather_codes import describe_weather
 
 
 class ARES:
 
     def __init__(self):
+
+        self.logger = get_logger()
 
         self.ai = AIClient()
         self.memory = Memory()
@@ -20,19 +26,36 @@ class ARES:
             calculate
         )
 
+        self.tools.register(
+            "weather",
+            "Retrieve current weather information.",
+            get_weather
+        )
+
+        self.logger.info("ARES initialized")
+
     def respond(self, message):
+
+        self.logger.info(
+            "User request: %s",
+            message
+        )
 
         route = self.router.route(message)
 
+        self.logger.info(
+            "Selected route: %s",
+            route
+        )
+
         if route == "calculator":
 
-            expression = message
-
-            expression = expression.replace(
-                "calculate", ""
-            ).replace(
-                "calc", ""
-            ).strip()
+            expression = (
+                message
+                .replace("calculate", "")
+                .replace("calc", "")
+                .strip()
+            )
 
             try:
 
@@ -44,6 +67,10 @@ class ARES:
                 return f"The answer is {result}."
 
             except Exception as error:
+
+                self.logger.exception(
+                    "Calculator failed"
+                )
 
                 return f"I couldn't calculate that safely: {error}"
 
@@ -61,23 +88,57 @@ class ARES:
 
             return "Got it. I've stored that in ARES memory."
 
-        if route == "help":
+        if route == "weather":
 
+            try:
+
+                weather = self.tools.execute(
+                    "weather",
+                    latitude=12.9716,
+                    longitude=77.5946
+                )
+
+                description = describe_weather(
+                    weather["weather_code"]
+                )
+
+                return (
+                    f"Current conditions: {description}. "
+                    f"Temperature: {weather['temperature']}°C. "
+                    f"Feels like: {weather['feels_like']}°C. "
+                    f"Humidity: {weather['humidity']}%. "
+                    f"Wind: {weather['wind_speed']} km/h."
+                )
+
+            except Exception as error:
+
+                self.logger.exception(
+                    "Weather failed"
+                )
+
+                return f"I couldn't retrieve weather data: {error}"
+
+        if route == "help":
             return self._help()
 
         return self.ai.ask(message)
 
     def _help(self):
 
-        tools = self.tools.list_tools()
-
         return (
-            "I can currently have conversations, maintain context, "
-            "remember information, detect conversational tone, "
-            "and safely perform calculations.\n\n"
-            f"Available tools: {', '.join(tools.keys())}"
+            "ARES capabilities:\n"
+            "- Natural language conversation\n"
+            "- Context\n"
+            "- Persistent memory\n"
+            "- Emotional-tone awareness\n"
+            "- Calculator\n"
+            "- Live weather"
         )
 
     def close(self):
 
         self.memory.close()
+
+        self.logger.info(
+            "ARES shutdown"
+        )
