@@ -2,11 +2,12 @@ import ast
 import operator
 
 from tools.base import Tool
+from tools.result import ToolResult
 
 
 class CalculatorTool(Tool):
     name = "calculator"
-    description = "Performs basic arithmetic calculations safely."
+    description = "Safely evaluates basic mathematical expressions."
 
     OPERATORS = {
         ast.Add: operator.add,
@@ -20,38 +21,53 @@ class CalculatorTool(Tool):
     }
 
     def run(self, expression: str):
-        if not expression:
-            raise ValueError("No expression provided.")
-
-        expression = expression.strip()
-
-        if len(expression) > 100:
-            raise ValueError("Expression is too long.")
-
         try:
-            tree = ast.parse(expression, mode="eval")
-            result = self._evaluate(tree.body)
+            if not expression:
+                raise ValueError("No expression supplied.")
 
-        except ZeroDivisionError:
-            raise ValueError("Division by zero is not allowed.")
+            expression = expression.strip()
 
-        except (SyntaxError, ValueError, TypeError):
-            raise ValueError("Invalid mathematical expression.")
+            if len(expression) > 100:
+                raise ValueError("Expression is too long.")
 
-        return result
+            tree = ast.parse(
+                expression,
+                mode="eval",
+            )
+
+            result = self._evaluate(
+                tree.body
+            )
+
+            return ToolResult.ok(
+                self.name,
+                result,
+            )
+
+        except Exception as error:
+            return ToolResult.fail(
+                self.name,
+                error,
+            )
 
     def _evaluate(self, node):
         if isinstance(node, ast.Constant):
             if isinstance(node.value, (int, float)):
                 return node.value
 
-            raise ValueError("Only numbers are allowed.")
+            raise ValueError(
+                "Only numbers are allowed."
+            )
 
         if isinstance(node, ast.BinOp):
-            operation = self.OPERATORS.get(type(node.op))
+            operation = self.OPERATORS.get(
+                type(node.op)
+            )
 
             if operation is None:
-                raise ValueError("Unsupported operator.")
+                raise ValueError(
+                    "Unsupported operator."
+                )
 
             left = self._evaluate(node.left)
             right = self._evaluate(node.right)
@@ -59,11 +75,19 @@ class CalculatorTool(Tool):
             return operation(left, right)
 
         if isinstance(node, ast.UnaryOp):
-            operation = self.OPERATORS.get(type(node.op))
+            operation = self.OPERATORS.get(
+                type(node.op)
+            )
 
             if operation is None:
-                raise ValueError("Unsupported operator.")
+                raise ValueError(
+                    "Unsupported operator."
+                )
 
-            return operation(self._evaluate(node.operand))
+            return operation(
+                self._evaluate(node.operand)
+            )
 
-        raise ValueError("Unsupported expression.")
+        raise ValueError(
+            "Unsupported expression."
+        )
