@@ -4,29 +4,32 @@ class Router:
 
         lowered = text.lower().strip()
 
-        calculation_words = [
-            "calculate",
-            "calc"
-        ]
-
-        if any(
-            lowered.startswith(word)
-            for word in calculation_words
-        ):
+        if lowered.startswith(("calculate ", "calc ")):
             return "calculator"
 
-        weather_words = [
+        if any(word in lowered for word in [
             "weather",
             "temperature outside",
             "forecast",
             "is it raining"
-        ]
-
-        if any(word in lowered for word in weather_words):
+        ]):
             return "weather"
 
         if lowered.startswith("remember "):
             return "memory"
+
+        if lowered.startswith((
+            "what do you remember",
+            "what do you know about me",
+            "show my memories"
+        )):
+            return "memory_search"
+
+        if lowered.startswith("open notepad"):
+            return "open_notepad"
+
+        if lowered.startswith("open calculator"):
+            return "open_calculator"
 
         if lowered in {
             "help",

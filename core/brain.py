@@ -7,6 +7,7 @@ from core.logger import get_logger
 from tools.calculator import calculate
 from tools.weather import get_weather
 from tools.weather_codes import describe_weather
+from tools.apps import launch_app
 
 
 class ARES:
@@ -30,6 +31,12 @@ class ARES:
             "weather",
             "Retrieve current weather information.",
             get_weather
+        )
+
+        self.tools.register(
+            "launch_app",
+            "Launch an explicitly allowlisted application.",
+            launch_app
         )
 
         self.logger.info("ARES initialized")
@@ -68,10 +75,6 @@ class ARES:
 
             except Exception as error:
 
-                self.logger.exception(
-                    "Calculator failed"
-                )
-
                 return f"I couldn't calculate that safely: {error}"
 
         if route == "memory":
@@ -87,6 +90,23 @@ class ARES:
             )
 
             return "Got it. I've stored that in ARES memory."
+
+        if route == "memory_search":
+
+            memories = self.memory.search(
+                limit=10
+            )
+
+            if not memories:
+                return "I don't have any stored memories yet."
+
+            lines = [
+                f"- {content}"
+                for category, content, created_at
+                in memories
+            ]
+
+            return "Here's what I remember:\n" + "\n".join(lines)
 
         if route == "weather":
 
@@ -112,33 +132,47 @@ class ARES:
 
             except Exception as error:
 
-                self.logger.exception(
-                    "Weather failed"
-                )
-
                 return f"I couldn't retrieve weather data: {error}"
 
+        if route == "open_notepad":
+
+            try:
+                return self.tools.execute(
+                    "launch_app",
+                    name="notepad"
+                )
+
+            except Exception as error:
+
+                return f"I couldn't launch Notepad: {error}"
+
+        if route == "open_calculator":
+
+            try:
+                return self.tools.execute(
+                    "launch_app",
+                    name="calculator"
+                )
+
+            except Exception as error:
+
+                return f"I couldn't launch Calculator: {error}"
+
         if route == "help":
-            return self._help()
+
+            return (
+                "ARES capabilities:\n"
+                "- Natural language conversation\n"
+                "- Context\n"
+                "- Persistent memory\n"
+                "- Emotional-tone awareness\n"
+                "- Calculator\n"
+                "- Live weather\n"
+                "- Allowlisted application launching"
+            )
 
         return self.ai.ask(message)
-
-    def _help(self):
-
-        return (
-            "ARES capabilities:\n"
-            "- Natural language conversation\n"
-            "- Context\n"
-            "- Persistent memory\n"
-            "- Emotional-tone awareness\n"
-            "- Calculator\n"
-            "- Live weather"
-        )
 
     def close(self):
 
         self.memory.close()
-
-        self.logger.info(
-            "ARES shutdown"
-        )
