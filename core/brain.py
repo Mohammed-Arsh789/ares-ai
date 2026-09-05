@@ -55,6 +55,10 @@ class ARES:
             route
         )
 
+        # -------------------------
+        # CALCULATOR
+        # -------------------------
+
         if route == "calculator":
 
             expression = (
@@ -75,21 +79,35 @@ class ARES:
 
             except Exception as error:
 
-                return f"I couldn't calculate that safely: {error}"
+                return (
+                    f"I couldn't calculate that safely: {error}"
+                )
+
+        # -------------------------
+        # MEMORY
+        # -------------------------
 
         if route == "memory":
 
             content = message[len("remember "):].strip()
 
             if not content:
-                return "Tell me what you'd like me to remember."
+                return (
+                    "Tell me what you'd like me to remember."
+                )
 
             self.memory.remember(
                 "user_memory",
                 content
             )
 
-            return "Got it. I've stored that in ARES memory."
+            return (
+                "Got it. I've stored that in ARES memory."
+            )
+
+        # -------------------------
+        # MEMORY SEARCH
+        # -------------------------
 
         if route == "memory_search":
 
@@ -98,7 +116,9 @@ class ARES:
             )
 
             if not memories:
-                return "I don't have any stored memories yet."
+                return (
+                    "I don't have any stored memories yet."
+                )
 
             lines = [
                 f"- {content}"
@@ -106,7 +126,14 @@ class ARES:
                 in memories
             ]
 
-            return "Here's what I remember:\n" + "\n".join(lines)
+            return (
+                "Here's what I remember:\n"
+                + "\n".join(lines)
+            )
+
+        # -------------------------
+        # WEATHER
+        # -------------------------
 
         if route == "weather":
 
@@ -124,39 +151,47 @@ class ARES:
 
                 return (
                     f"Current conditions: {description}. "
-                    f"Temperature: {weather['temperature']}°C. "
-                    f"Feels like: {weather['feels_like']}°C. "
-                    f"Humidity: {weather['humidity']}%. "
-                    f"Wind: {weather['wind_speed']} km/h."
+                    f"Temperature: "
+                    f"{weather['temperature']}°C. "
+                    f"Feels like: "
+                    f"{weather['feels_like']}°C. "
+                    f"Humidity: "
+                    f"{weather['humidity']}%. "
+                    f"Wind: "
+                    f"{weather['wind_speed']} km/h."
                 )
 
             except Exception as error:
 
-                return f"I couldn't retrieve weather data: {error}"
+                return (
+                    f"I couldn't retrieve weather data: {error}"
+                )
 
-        if route == "open_notepad":
+        # -------------------------
+        # OPEN APPLICATION
+        # -------------------------
+
+        if route == "open_app":
+
+            app_name = message[5:].strip()
 
             try:
+
                 return self.tools.execute(
                     "launch_app",
-                    name="notepad"
+                    name=app_name
                 )
 
             except Exception as error:
 
-                return f"I couldn't launch Notepad: {error}"
-
-        if route == "open_calculator":
-
-            try:
-                return self.tools.execute(
-                    "launch_app",
-                    name="calculator"
+                return (
+                    f"I couldn't launch "
+                    f"{app_name}: {error}"
                 )
 
-            except Exception as error:
-
-                return f"I couldn't launch Calculator: {error}"
+        # -------------------------
+        # HELP
+        # -------------------------
 
         if route == "help":
 
@@ -170,6 +205,10 @@ class ARES:
                 "- Live weather\n"
                 "- Allowlisted application launching"
             )
+
+        # -------------------------
+        # CHAT
+        # -------------------------
 
         return self.ai.ask(message)
 

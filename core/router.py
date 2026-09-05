@@ -1,42 +1,39 @@
+"""
+ARES Intelligent Router
+Step 177
+"""
+
+from __future__ import annotations
+
+from .intent import Intent
+from .planner import Planner
+from tools.registry import ToolRegistry
+
+
 class Router:
 
-    def route(self, text):
+    def __init__(
+        self,
+        registry: ToolRegistry,
+    ):
 
-        lowered = text.lower().strip()
+        self.registry = registry
 
-        if lowered.startswith(("calculate ", "calc ")):
-            return "calculator"
+        self.planner = Planner()
 
-        if any(word in lowered for word in [
-            "weather",
-            "temperature outside",
-            "forecast",
-            "is it raining"
-        ]):
-            return "weather"
+    def route(
+        self,
+        user_input: str,
+        intent: Intent,
+    ):
 
-        if lowered.startswith("remember "):
-            return "memory"
+        task = self.planner.create_plan(
+            user_input,
+            intent,
+        )
 
-        if lowered.startswith((
-            "what do you remember",
-            "what do you know about me",
-            "show my memories"
-        )):
-            return "memory_search"
+        return task
 
-        if lowered.startswith("open notepad"):
-            return "open_notepad"
+    def available_tools(self):
 
-        if lowered.startswith("open calculator"):
-            return "open_calculator"
-
-        if lowered in {
-            "help",
-            "what can you do",
-            "what are your capabilities",
-            "capabilities"
-        }:
-            return "help"
-
-        return "chat"
+        return self.registry.list_tools()
