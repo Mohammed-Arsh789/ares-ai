@@ -1,34 +1,19 @@
-from dataclasses import dataclass
-from typing import Any
+"""
+Backward-compatible tool result exports.
 
+The canonical result implementation lives in core.results.
+"""
 
-@dataclass
-class ToolResult:
-    success: bool
-    data: Any = None
-    error: str | None = None
-    tool: str | None = None
+from core.results import (
+    ToolResult,
+    ResultStatus,
+    create_trace_id,
+    utc_timestamp,
+)
 
-    def to_dict(self):
-        return {
-            "success": self.success,
-            "data": self.data,
-            "error": self.error,
-            "tool": self.tool,
-        }
-
-    @classmethod
-    def ok(cls, tool, data):
-        return cls(
-            success=True,
-            data=data,
-            tool=tool,
-        )
-
-    @classmethod
-    def fail(cls, tool, error):
-        return cls(
-            success=False,
-            error=str(error),
-            tool=tool,
-        )
+__all__ = [
+    "ToolResult",
+    "ResultStatus",
+    "create_trace_id",
+    "utc_timestamp",
+]
