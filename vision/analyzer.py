@@ -1,27 +1,47 @@
-from vision.ocr import OCR
-from vision.vision_model import VisionModel
+from __future__ import annotations
+
+from .image_loader import ImageLoader
+from .ocr import OCRService
 
 
 class VisionAnalyzer:
-    def __init__(self):
-        self.ocr = OCR()
-        self.model = VisionModel()
 
-    def analyze(
+    def __init__(
         self,
-        image_path,
-        question=None,
+        ocr: OCRService | None = None,
     ):
-        ocr_result = self.ocr.extract_text(
-            image_path
+
+        self.loader = ImageLoader()
+
+        self.ocr = (
+            ocr
+            or OCRService()
         )
 
-        vision_result = self.model.analyze(
-            image_path,
-            question,
+    def inspect(
+        self,
+        path: str,
+        extract_text: bool = False,
+    ):
+
+        image = self.loader.load(
+            path
         )
 
-        return {
-            "ocr": ocr_result,
-            "vision": vision_result,
+        result = {
+            "image":
+                image.to_dict(),
+
+            "ocr":
+                None,
         }
+
+        if extract_text:
+
+            result["ocr"] = (
+                self.ocr
+                .extract(path)
+                .to_dict()
+            )
+
+        return result

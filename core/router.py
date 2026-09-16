@@ -1,6 +1,9 @@
 """
 ARES Intelligent Router
-Step 177
+
+Converts an analyzed intent into an executable task plan.
+
+The router DOES NOT execute tools.
 """
 
 from __future__ import annotations

@@ -1,6 +1,7 @@
 """
 ARES Tool Registry
-Step 174
+
+Single source of truth for registered tools.
 """
 
 from __future__ import annotations
@@ -27,19 +28,21 @@ class ToolRegistry:
                 "Only Tool instances can be registered."
             )
 
-        if not tool.name:
+        name = tool.name.strip()
+
+        if not name:
 
             raise ValueError(
-                "Tool must have a name."
+                "Tool must have a non-empty name."
             )
 
-        if tool.name in self._tools:
+        if name in self._tools:
 
             raise ValueError(
-                f"Tool already registered: {tool.name}"
+                f"Tool already registered: {name}"
             )
 
-        self._tools[tool.name] = tool
+        self._tools[name] = tool
 
     def get(
         self,
@@ -55,15 +58,20 @@ class ToolRegistry:
 
         return name in self._tools
 
-    def list_tools(
-        self,
-    ) -> list[dict[str, Any]]:
+    def names(self) -> list[str]:
+
+        return list(self._tools.keys())
+
+    def list_tools(self) -> list[dict[str, Any]]:
 
         return [
             tool.describe()
             for tool in self._tools.values()
         ]
 
-    def names(self) -> list[str]:
+    def descriptions(self) -> dict[str, str]:
 
-        return list(self._tools.keys())
+        return {
+            name: tool.description
+            for name, tool in self._tools.items()
+        }

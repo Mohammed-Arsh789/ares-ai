@@ -1,10 +1,14 @@
 """
 ARES Tool Interface
-Step 173
 
-Every ARES tool will eventually implement this interface.
+All executable ARES capabilities must implement this interface.
 
-Tools must be explicitly registered.
+A tool is:
+    registered
+    described
+    permission-checked
+    executed
+    wrapped in ToolResult
 """
 
 from __future__ import annotations
@@ -21,16 +25,19 @@ class Tool(ABC):
 
     dangerous: bool = False
 
+    requires_confirmation: bool = False
+
     @abstractmethod
-    def execute(
+    def run(
         self,
         **kwargs: Any,
     ) -> Any:
         """
         Execute the tool.
 
-        Concrete tools must implement this.
+        Concrete tools implement this method.
         """
+
         raise NotImplementedError
 
     def describe(self) -> dict[str, Any]:
@@ -39,4 +46,6 @@ class Tool(ABC):
             "name": self.name,
             "description": self.description,
             "dangerous": self.dangerous,
+            "requires_confirmation":
+                self.requires_confirmation,
         }

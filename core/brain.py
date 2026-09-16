@@ -214,4 +214,4 @@ class ARES:
 
     def close(self):
 
-        self.memory.close()
+        self.memory.close() 

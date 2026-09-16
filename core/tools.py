@@ -1,3 +1,11 @@
+"""
+ARES Tool Manager
+
+Central registration point for built-in tools.
+"""
+
+from __future__ import annotations
+
 from tools.registry import ToolRegistry
 
 from tools.calculator import CalculatorTool
@@ -6,12 +14,15 @@ from tools.web import WebTool
 
 
 class ToolManager:
+
     def __init__(self):
+
         self.registry = ToolRegistry()
 
         self.register_default_tools()
 
     def register_default_tools(self):
+
         self.registry.register(
             CalculatorTool()
         )
@@ -24,14 +35,24 @@ class ToolManager:
             WebTool()
         )
 
-    def get(self, name):
+    def get(
+        self,
+        name: str,
+    ):
+
         return self.registry.get(name)
 
-    def has(self, name):
+    def has(
+        self,
+        name: str,
+    ):
+
         return self.registry.has(name)
 
     def available_tools(self):
+
         return self.registry.list_tools()
 
     def descriptions(self):
+
         return self.registry.descriptions()
