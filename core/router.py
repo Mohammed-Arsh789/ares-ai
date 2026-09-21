@@ -1,170 +1,120 @@
-"""
-ARES Intelligent Router
-
-Compatibility-first routing layer.
-
-Supports:
-
-1. Legacy interface:
-       router = Router()
-       router.route("calculate 5 + 5")
-       -> "calculator"
-
-2. Registry-aware interface:
-       router = Router(registry)
-       router.available_tools()
-
-3. Planning interface:
-       router.route(message, intent)
-       -> planner-generated plan
-"""
-
 from __future__ import annotations
 
 from typing import Any, Optional
 
-from .planner import Planner
+from .intent import Intent, IntentName
+from .intent_detector import IntentDetector
 
 
 class Router:
     """
-    Routes user requests to legacy route names or planner-generated plans.
+    ARES routing layer.
 
-    The router deliberately preserves compatibility with the existing
-    ARES brain interface while supporting the newer planning architecture.
+    User input
+        ↓
+    IntentDetector
+        ↓
+    Intent
+        ↓
+    Stable route
     """
 
-    def __init__(self, registry: Optional[Any] = None):
+    def __init__(
+        self,
+        registry: Optional[Any] = None,
+        intent_detector: Optional[IntentDetector] = None,
+    ) -> None:
         self.registry = registry
-        self.planner = Planner()
+        self.intent_detector = intent_detector or IntentDetector()
+
+    def detect_intent(self, user_input: str) -> Intent:
+        """
+        Return the complete structured Intent.
+        """
+        return self.intent_detector.detect(user_input)
 
     def route(
         self,
         user_input: str,
         intent: Optional[Any] = None,
-    ) -> Any:
+    ) -> str:
         """
-        Route a user request.
-
-        Legacy examples:
-
-            route("calculate 5 + 5")
-            -> "calculator"
-
-            route("remember I like F1")
-            -> "memory"
-
-            route("what is the weather")
-            -> "weather"
-
-        Planning example:
-
-            route("some request", intent)
-            -> planner-created plan
+        Convert an Intent into the route expected by ARES.
         """
 
-        if not isinstance(user_input, str):
-            raise TypeError("user_input must be a string.")
+        if isinstance(intent, Intent):
+            detected = intent
 
-        text = user_input.strip()
+        elif intent is not None:
+            try:
+                detected = Intent(
+                    name=intent,
+                    raw_text=user_input,
+                )
+            except Exception:
+                detected = self.detect_intent(user_input)
 
-        if not text:
-            return "conversation"
+        else:
+            detected = self.detect_intent(user_input)
 
-        lowered = text.lower()
+        route_map = {
+            IntentName.CONVERSATION: "conversation",
+            IntentName.CALCULATOR: "calculator",
+            IntentName.MEMORY_STORE: "memory",
+            IntentName.MEMORY_SEARCH: "memory_search",
+            IntentName.WEATHER: "weather",
+            IntentName.WEB_SEARCH: "web_search",
+            IntentName.WEB_FETCH: "web_fetch",
+            IntentName.OPEN_APP: "open_app",
+            IntentName.FILE_OPERATION: "file_operation",
+            IntentName.DOCUMENT_ANALYSIS: "document_analysis",
+            IntentName.VISION: "vision",
+            IntentName.CODING: "coding",
+            IntentName.RESEARCH: "research",
+            IntentName.STUDY: "study",
+            IntentName.REVIEW: "review",
+            IntentName.AUTOMATION: "automation",
+            IntentName.WORKSPACE: "workspace",
+            IntentName.PLUGIN: "plugin",
+            IntentName.HELP: "help",
+            IntentName.UNKNOWN: "conversation",
+        }
 
-        # ---------------------------------------------------------
-        # Calculator
-        # ---------------------------------------------------------
-        if lowered.startswith(("calculate ", "calc ")):
-            return "calculator"
-
-        # ---------------------------------------------------------
-        # Memory write
-        # ---------------------------------------------------------
-        if lowered.startswith("remember "):
-            return "memory"
-
-        # ---------------------------------------------------------
-        # Memory search
-        # ---------------------------------------------------------
-        memory_queries = (
-            "what do you remember",
-            "what do you know about me",
-            "show my memories",
-            "recall my memories",
-            "list memories",
+        return route_map.get(
+            detected.name,
+            "conversation",
         )
 
-        if any(phrase in lowered for phrase in memory_queries):
-            return "memory_search"
-
-        # ---------------------------------------------------------
-        # Weather
-        # ---------------------------------------------------------
-        weather_keywords = (
-            "weather",
-            "temperature outside",
-            "forecast",
-            "is it raining",
-            "how hot is it",
-            "how cold is it",
-        )
-
-        if any(keyword in lowered for keyword in weather_keywords):
-            return "weather"
-
-        # ---------------------------------------------------------
-        # Application launching
-        # ---------------------------------------------------------
-        if lowered.startswith(("open ", "launch ", "start ")):
-            return "open_app"
-
-        # ---------------------------------------------------------
-        # Help
-        # ---------------------------------------------------------
-        if lowered in {
-            "help",
-            "commands",
-            "what can you do",
-        }:
-            return "help"
-
-        # ---------------------------------------------------------
-        # New planning system
-        # ---------------------------------------------------------
-        if intent is not None:
-            return self.planner.create_plan(text, intent)
-
-        # ---------------------------------------------------------
-        # Default conversational route
-        # ---------------------------------------------------------
-        return "conversation"
-
-    def available_tools(self) -> list[Any]:
+    def route_intent(self, user_input: str) -> Intent:
         """
-        Return available tools from the attached registry.
+        Structured routing API for newer ARES components.
+        """
+        return self.detect_intent(user_input)
 
-        Supports registries exposing either:
-
-            list_tools()
-
-        or:
-
-            names()
+    def available_tools(self) -> list[str]:
+        """
+        Return registered tool names if a registry is attached.
         """
 
         if self.registry is None:
             return []
 
-        list_tools = getattr(self.registry, "list_tools", None)
+        if hasattr(self.registry, "names"):
+            return list(self.registry.names())
 
-        if callable(list_tools):
-            return list_tools()
+        if hasattr(self.registry, "list_tools"):
+            tools = self.registry.list_tools()
 
-        names = getattr(self.registry, "names", None)
+            result = []
 
-        if callable(names):
-            return names()
+            for item in tools:
+                if isinstance(item, dict):
+                    result.append(
+                        item.get("name", str(item))
+                    )
+                else:
+                    result.append(str(item))
+
+            return result
 
         return []
