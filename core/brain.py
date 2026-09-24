@@ -4,6 +4,9 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
+from core.cognitive_state import CognitiveState
+from core.working_memory import WorkingMemory
+
 
 logger = logging.getLogger(__name__)
 
@@ -11,7 +14,7 @@ logger = logging.getLogger(__name__)
 @dataclass(slots=True)
 class BrainResult:
     """
-    Final result returned by ARESBrain.process().
+    Result returned by the ARES brain after processing a request.
     """
 
     success: bool
@@ -37,56 +40,83 @@ class BrainResult:
 
 class ARESBrain:
     """
-    Main coordination layer for ARES.
+    Central orchestration layer for ARES cognition.
 
-    Pipeline:
+    The Brain coordinates:
 
-        User Input
-            ↓
-        Cognitive Core
-            ↓
-        Decision
-            ↓
-        Planner / Orchestrator
-            ↓
-        Tool Execution
-            ↓
-        Verification
-            ↓
-        Reflection
-            ↓
-        Response
+    - context
+    - cognitive reasoning
+    - decisions
+    - planning
+    - tool execution
+    - verification
+    - reflection
+    - cognitive state
+    - working memory
+    - long-term memory
+
+    The Brain itself does not perform tool-specific work.
     """
 
     def __init__(
         self,
         *,
-        cognitive_core: Any,
-        reflection_engine: Any = None,
-        orchestrator: Any = None,
-        planner: Any = None,
+        cognitive_core: Any = None,
         context_manager: Any = None,
-        memory_bridge: Any = None,
+        planner: Any = None,
+        orchestrator: Any = None,
         verification_engine: Any = None,
-        recovery_engine: Any = None,
+        reflection_engine: Any = None,
+        memory_bridge: Any = None,
+        cognitive_state: CognitiveState | None = None,
+        working_memory: WorkingMemory | None = None,
     ) -> None:
         self.cognitive_core = cognitive_core
-        self.reflection_engine = reflection_engine
-        self.orchestrator = orchestrator
+
+        self.context_manager = (
+            context_manager
+        )
+
         self.planner = planner
-        self.context_manager = context_manager
-        self.memory_bridge = memory_bridge
-        self.verification_engine = verification_engine
-        self.recovery_engine = recovery_engine
+
+        self.orchestrator = orchestrator
+
+        self.verification_engine = (
+            verification_engine
+        )
+
+        self.reflection_engine = (
+            reflection_engine
+        )
+
+        self.memory_bridge = (
+            memory_bridge
+        )
+
+        self.cognitive_state = (
+            cognitive_state
+            if cognitive_state is not None
+            else CognitiveState()
+        )
+
+        self.working_memory = (
+            working_memory
+            if working_memory is not None
+            else WorkingMemory()
+        )
+
+    # ------------------------------------------------------------------
+    # Main processing
+    # ------------------------------------------------------------------
 
     def process(
         self,
         user_input: str,
         *,
-        session_context: dict[str, Any] | None = None,
+        session_context: Any = None,
     ) -> BrainResult:
         """
-        Process one user request through the ARES cognitive pipeline.
+        Process a user request through the ARES cognitive pipeline.
         """
 
         if not isinstance(user_input, str):
@@ -94,84 +124,249 @@ class ARESBrain:
                 "user_input must be a string."
             )
 
-        if not user_input.strip():
+        user_input = user_input.strip()
+
+        if not user_input:
             raise ValueError(
                 "Cannot process empty input."
             )
 
         logger.info(
-            "ARES processing input: %s",
-            user_input,
+            "ARES processing request."
         )
 
-        try:
-            context = self._build_context(
-                user_input=user_input,
-                session_context=session_context,
+        self._begin_task(
+            user_input=user_input,
+            session_context=session_context,
+        )
+
+        context = self._build_context(
+            user_input=user_input,
+            session_context=session_context,
+        )
+
+        self._record_context(
+            context
+        )
+
+        decision = self._make_decision(
+            user_input=user_input,
+            context=context,
+        )
+
+        self.cognitive_state.set_decision(
+            decision
+        )
+
+        self._record_working_memory(
+            fact={
+                "type": "decision",
+                "value": decision,
+            }
+        )
+
+        decision_type = self._decision_type(
+            decision
+        )
+
+        if decision_type == "conversation":
+            result = self._handle_conversation(
+                decision
             )
 
-            decision = self._make_decision(
-                user_input=user_input,
-                context=context,
+        elif decision_type == "clarification":
+            result = self._handle_clarification(
+                decision
             )
 
-            return self._handle_decision(
+        elif decision_type == "refuse":
+            result = self._handle_refusal(
+                decision
+            )
+
+        elif decision_type == "plan":
+            result = self._handle_plan(
                 decision=decision,
                 user_input=user_input,
                 context=context,
             )
 
-        except Exception as exc:
-            logger.exception(
-                "ARES brain processing failed."
+        elif decision_type == "tool":
+            result = self._handle_tool(
+                decision=decision,
+                user_input=user_input,
+                context=context,
             )
 
-            return BrainResult(
+        else:
+            result = BrainResult(
                 success=False,
                 response=(
-                    "ARES encountered an internal error."
+                    "ARES could not determine "
+                    "how to handle the request."
                 ),
-                error=str(exc),
+                decision=decision,
+                error=(
+                    f"Unsupported decision type: "
+                    f"{decision_type}"
+                ),
             )
 
-    # =========================================================
-    # CONTEXT
-    # =========================================================
+        self._finalize_task(
+            result=result
+        )
+
+        return result
+
+    # ------------------------------------------------------------------
+    # Task lifecycle
+    # ------------------------------------------------------------------
+
+    def _begin_task(
+        self,
+        *,
+        user_input: str,
+        session_context: Any,
+    ) -> None:
+        """
+        Initialize state for a new request.
+        """
+
+        self.cognitive_state.reset_task(
+            keep_session=True
+        )
+
+        self.cognitive_state.set_goal(
+            user_input
+        )
+
+        self.cognitive_state.set_status(
+            "thinking"
+        )
+
+        self.working_memory.clear()
+
+        self.working_memory.add_fact(
+            {
+                "type": "user_input",
+                "value": user_input,
+            }
+        )
+
+        if session_context is not None:
+            self.working_memory.add_fact(
+                {
+                    "type": "session_context",
+                    "value": session_context,
+                }
+            )
+
+    def _finalize_task(
+        self,
+        *,
+        result: BrainResult,
+    ) -> None:
+        """
+        Update final cognitive state after processing.
+        """
+
+        if result.success:
+            if result.executed:
+                self.cognitive_state.set_status(
+                    "completed"
+                )
+            else:
+                self.cognitive_state.set_status(
+                    "responded"
+                )
+        else:
+            self.cognitive_state.set_status(
+                "failed"
+            )
+
+        self.working_memory.add_observation(
+            {
+                "type": "brain_result",
+                "success": result.success,
+                "executed": result.executed,
+                "response": result.response,
+            }
+        )
+
+        result.metadata.setdefault(
+            "cognitive_state",
+            self.cognitive_state.snapshot(),
+        )
+
+        result.metadata.setdefault(
+            "working_memory",
+            self.working_memory.snapshot(),
+        )
+
+    # ------------------------------------------------------------------
+    # Context
+    # ------------------------------------------------------------------
 
     def _build_context(
         self,
         *,
         user_input: str,
-        session_context: dict[str, Any] | None,
+        session_context: Any,
     ) -> Any:
         """
-        Build cognitive context when a context manager exists.
+        Build cognitive context when a context manager is connected.
         """
 
         if self.context_manager is None:
             return None
 
-        try:
-            return self.context_manager.build(
-                user_input=user_input,
-                session_context=session_context or {},
+        manager = self.context_manager
+
+        if hasattr(manager, "build"):
+            try:
+                return manager.build(
+                    user_input=user_input,
+                    session_context=session_context,
+                )
+            except TypeError:
+                try:
+                    return manager.build(
+                        user_input,
+                        session_context,
+                    )
+                except TypeError:
+                    return manager.build(
+                        user_input
+                    )
+
+        if callable(manager):
+            return manager(
+                user_input
             )
 
-        except TypeError:
-            try:
-                return self.context_manager.build(
-                    user_input,
-                    session_context or {},
-                )
+        return None
 
-            except TypeError:
-                return self.context_manager.build(
-                    user_input
-                )
+    def _record_context(
+        self,
+        context: Any,
+    ) -> None:
+        """
+        Record useful context information in working memory.
+        """
 
-    # =========================================================
-    # COGNITION
-    # =========================================================
+        if context is None:
+            return
+
+        self.working_memory.add_fact(
+            {
+                "type": "cognitive_context",
+                "value": context,
+            }
+        )
+
+    # ------------------------------------------------------------------
+    # Cognition
+    # ------------------------------------------------------------------
 
     def _make_decision(
         self,
@@ -180,239 +375,187 @@ class ARESBrain:
         context: Any,
     ) -> Any:
         """
-        Ask the Cognitive Core what ARES should do.
+        Ask the cognitive core for a decision.
         """
 
-        if hasattr(
-            self.cognitive_core,
-            "decide",
-        ):
+        if self.cognitive_core is None:
+            raise RuntimeError(
+                "Cognitive core is not connected."
+            )
+
+        core = self.cognitive_core
+
+        if hasattr(core, "decide"):
             try:
-                return self.cognitive_core.decide(
+                return core.decide(
                     user_input=user_input,
                     context=context,
                 )
-
             except TypeError:
                 try:
-                    return self.cognitive_core.decide(
+                    return core.decide(
                         user_input,
                         context,
                     )
-
                 except TypeError:
-                    return self.cognitive_core.decide(
+                    return core.decide(
                         user_input
                     )
 
-        if hasattr(
-            self.cognitive_core,
-            "process",
-        ):
+        if hasattr(core, "process"):
             try:
-                return self.cognitive_core.process(
+                return core.process(
                     user_input=user_input,
                     context=context,
                 )
-
             except TypeError:
-                return self.cognitive_core.process(
-                    user_input
-                )
+                try:
+                    return core.process(
+                        user_input,
+                        context,
+                    )
+                except TypeError:
+                    return core.process(
+                        user_input
+                    )
+
+        if callable(core):
+            return core(
+                user_input
+            )
 
         raise AttributeError(
             "Cognitive core does not provide "
             "a supported decision method."
         )
 
-    # =========================================================
-    # DECISION ROUTING
-    # =========================================================
-
-    def _handle_decision(
-        self,
-        *,
-        decision: Any,
-        user_input: str,
-        context: Any,
-    ) -> BrainResult:
-        """
-        Route the cognitive decision.
-        """
-
-        decision_type = self._decision_type(
-            decision
-        )
-
-        name = self._normalize_decision_type(
-            decision_type
-        )
-
-        if name == "conversation":
-            return self._handle_conversation(
-                decision
-            )
-
-        if name == "clarification":
-            return self._handle_clarification(
-                decision
-            )
-
-        if name == "refuse":
-            return self._handle_refusal(
-                decision
-            )
-
-        if name == "plan":
-            return self._handle_plan(
-                decision=decision,
-                user_input=user_input,
-                context=context,
-            )
-
-        if name == "tool":
-            return self._handle_tool(
-                decision=decision,
-                user_input=user_input,
-                context=context,
-            )
-
-        logger.warning(
-            "Unknown decision type: %s",
-            decision_type,
-        )
-
-        return BrainResult(
-            success=False,
-            response=(
-                "ARES could not determine what "
-                "action to take."
-            ),
-            decision=decision,
-        )
+    # ------------------------------------------------------------------
+    # Decision helpers
+    # ------------------------------------------------------------------
 
     def _decision_type(
         self,
         decision: Any,
-    ) -> Any:
-        if hasattr(
+    ) -> str:
+        """
+        Normalize a cognitive decision type.
+        """
+
+        value = getattr(
             decision,
             "decision_type",
-        ):
-            return decision.decision_type
+            None,
+        )
 
-        if hasattr(
-            decision,
-            "type",
-        ):
-            return decision.type
-
-        if isinstance(
-            decision,
-            dict,
-        ):
-            return decision.get(
-                "decision_type",
-                decision.get("type"),
+        if value is None:
+            value = getattr(
+                decision,
+                "type",
+                None,
             )
 
-        return None
+        if hasattr(value, "value"):
+            value = value.value
 
-    def _normalize_decision_type(
-        self,
-        value: Any,
-    ) -> str:
         if value is None:
             return ""
 
-        if hasattr(
-            value,
-            "value",
-        ):
-            value = value.value
+        return str(
+            value
+        ).strip().lower()
 
-        text = str(value).strip().lower()
-
-        return (
-            text
-            .replace("_", "")
-            .replace("-", "")
-            .replace(" ", "")
-        )
-
-    # =========================================================
-    # CONVERSATION
-    # =========================================================
+    # ------------------------------------------------------------------
+    # Conversation
+    # ------------------------------------------------------------------
 
     def _handle_conversation(
         self,
         decision: Any,
     ) -> BrainResult:
-        response = self._decision_value(
+        response = getattr(
             decision,
             "response",
             "",
         )
 
+        if not response:
+            response = getattr(
+                decision,
+                "reasoning",
+                "",
+            )
+
         return BrainResult(
             success=True,
-            response=str(response),
+            response=str(
+                response
+            ),
             executed=False,
             decision=decision,
         )
 
-    # =========================================================
-    # CLARIFICATION
-    # =========================================================
+    # ------------------------------------------------------------------
+    # Clarification
+    # ------------------------------------------------------------------
 
     def _handle_clarification(
         self,
         decision: Any,
     ) -> BrainResult:
-        response = self._decision_value(
+        question = getattr(
             decision,
             "clarification_question",
-            None,
+            "",
         )
 
-        if not response:
-            response = self._decision_value(
+        if not question:
+            question = getattr(
                 decision,
                 "response",
-                "Could you clarify that?",
+                "",
             )
 
         return BrainResult(
             success=True,
-            response=str(response),
+            response=str(
+                question
+            ),
             executed=False,
             decision=decision,
         )
 
-    # =========================================================
-    # REFUSAL
-    # =========================================================
+    # ------------------------------------------------------------------
+    # Refusal
+    # ------------------------------------------------------------------
 
     def _handle_refusal(
         self,
         decision: Any,
     ) -> BrainResult:
-        response = self._decision_value(
+        response = getattr(
             decision,
             "response",
-            "ARES cannot help with that request.",
+            "",
         )
+
+        if not response:
+            response = (
+                "ARES cannot perform "
+                "that request."
+            )
 
         return BrainResult(
             success=True,
-            response=str(response),
+            response=str(
+                response
+            ),
             executed=False,
             decision=decision,
         )
 
-    # =========================================================
-    # PLAN
-    # =========================================================
+    # ------------------------------------------------------------------
+    # Planning
+    # ------------------------------------------------------------------
 
     def _handle_plan(
         self,
@@ -421,10 +564,6 @@ class ARESBrain:
         user_input: str,
         context: Any,
     ) -> BrainResult:
-        """
-        Send planning decisions to the connected planner.
-        """
-
         if self.planner is None:
             return BrainResult(
                 success=True,
@@ -471,6 +610,17 @@ class ARESBrain:
                     "a supported planning method."
                 )
 
+            self.cognitive_state.set_plan(
+                plan
+            )
+
+            self.working_memory.add_fact(
+                {
+                    "type": "active_plan",
+                    "value": plan,
+                }
+            )
+
             return BrainResult(
                 success=True,
                 response="Plan created.",
@@ -487,17 +637,29 @@ class ARESBrain:
                 "Planning failed."
             )
 
+            self.cognitive_state.record_failure()
+
+            self.working_memory.add_observation(
+                {
+                    "type": "planning_failure",
+                    "error": str(exc),
+                }
+            )
+
             return BrainResult(
                 success=False,
-                response="ARES could not create the plan.",
+                response=(
+                    "ARES could not create "
+                    "the requested plan."
+                ),
                 executed=False,
                 decision=decision,
                 error=str(exc),
             )
 
-    # =========================================================
-    # TOOL EXECUTION
-    # =========================================================
+    # ------------------------------------------------------------------
+    # Tool execution
+    # ------------------------------------------------------------------
 
     def _handle_tool(
         self,
@@ -506,31 +668,30 @@ class ARESBrain:
         user_input: str,
         context: Any,
     ) -> BrainResult:
-        """
-        Execute a tool through the orchestrator.
-        """
-
-        action = self._decision_value(
+        action = getattr(
             decision,
             "tool_name",
             None,
         )
 
-        arguments = self._decision_value(
+        if action is None:
+            action = getattr(
+                decision,
+                "action",
+                None,
+            )
+
+        arguments = getattr(
             decision,
             "tool_arguments",
-            {},
+            None,
         )
 
-        if not action:
-            return BrainResult(
-                success=False,
-                response=(
-                    "ARES selected a tool but "
-                    "did not specify which tool."
-                ),
-                executed=False,
-                decision=decision,
+        if arguments is None:
+            arguments = getattr(
+                decision,
+                "arguments",
+                {},
             )
 
         if arguments is None:
@@ -540,18 +701,32 @@ class ARESBrain:
             arguments,
             dict,
         ):
-            arguments = dict(arguments)
+            arguments = dict(
+                arguments
+            )
 
-        if self.orchestrator is None:
+        if not action:
             return BrainResult(
                 success=False,
                 response=(
-                    f"ARES selected '{action}', "
-                    "but no orchestrator is connected."
+                    "ARES received a tool "
+                    "decision without a tool name."
                 ),
                 executed=False,
                 decision=decision,
+                error="Missing tool name.",
             )
+
+        self.cognitive_state.set_status(
+            "executing"
+        )
+
+        self.working_memory.add_pending_action(
+            {
+                "tool": action,
+                "arguments": arguments,
+            }
+        )
 
         try:
             result = self._execute_tool(
@@ -560,10 +735,45 @@ class ARESBrain:
                 context=context,
             )
 
+            self.cognitive_state.set_tool_result(
+                result
+            )
+
+            self.working_memory.remove_pending_action(
+                {
+                    "tool": action,
+                    "arguments": arguments,
+                }
+            )
+
+            self.working_memory.add_observation(
+                {
+                    "type": "tool_result",
+                    "tool": action,
+                    "result": result,
+                }
+            )
+
         except Exception as exc:
             logger.exception(
-                "Tool execution failed: %s",
-                action,
+                "Tool execution failed."
+            )
+
+            self.cognitive_state.record_failure()
+
+            self.working_memory.remove_pending_action(
+                {
+                    "tool": action,
+                    "arguments": arguments,
+                }
+            )
+
+            self.working_memory.add_observation(
+                {
+                    "type": "tool_failure",
+                    "tool": action,
+                    "error": str(exc),
+                }
             )
 
             return BrainResult(
@@ -582,49 +792,77 @@ class ARESBrain:
             result=result,
         )
 
-        success = self._verification_success(
-            verification=verification,
-            result=result,
+        self.cognitive_state.add_observation(
+            {
+                "type": "verification",
+                "verified": getattr(
+                    verification,
+                    "verified",
+                    False,
+                ),
+                "reason": self._verification_reason(
+                    verification
+                ),
+            }
         )
+
+        verified = bool(
+            getattr(
+                verification,
+                "verified",
+                True,
+            )
+        )
+
+        if not verified:
+            self.cognitive_state.record_failure()
 
         reflection = self._reflect(
             user_input=user_input,
             action=action,
             result=result,
             verification=verification,
-            success=success,
+            success=verified,
         )
 
-        final_success = self._reflection_success(
-            reflection=reflection,
-            fallback=success,
+        self.cognitive_state.set_status(
+            "completed"
+            if verified
+            else "failed"
         )
 
         response = self._build_tool_response(
             action=action,
-            result=result,
+            success=verified,
             verification=verification,
-            success=final_success,
-            reflection=reflection,
-        )
-
-        self._remember(
-            user_input=user_input,
-            response=response,
-            decision=decision,
-            result=result,
-            context=context,
         )
 
         return BrainResult(
-            success=final_success,
+            success=verified,
             response=response,
             executed=True,
             decision=decision,
             execution_result=result,
             verification=verification,
             reflection=reflection,
+            error=""
+            if verified
+            else self._verification_reason(
+                verification
+            ),
+            metadata={
+                "cognitive_state": (
+                    self.cognitive_state.snapshot()
+                ),
+                "working_memory": (
+                    self.working_memory.snapshot()
+                ),
+            },
         )
+
+    # ------------------------------------------------------------------
+    # Tool execution compatibility
+    # ------------------------------------------------------------------
 
     def _execute_tool(
         self,
@@ -633,70 +871,69 @@ class ARESBrain:
         arguments: dict[str, Any],
         context: Any,
     ) -> Any:
-        """
-        Execute a tool through the connected orchestrator.
-        """
+        if self.orchestrator is None:
+            raise RuntimeError(
+                "No orchestrator is connected."
+            )
+
+        orchestrator = self.orchestrator
 
         if hasattr(
-            self.orchestrator,
+            orchestrator,
             "execute_tool",
         ):
             try:
-                return self.orchestrator.execute_tool(
+                return orchestrator.execute_tool(
                     action,
                     arguments,
                 )
-
             except TypeError:
-                return self.orchestrator.execute_tool(
+                return orchestrator.execute_tool(
                     action=action,
                     arguments=arguments,
                 )
 
         if hasattr(
-            self.orchestrator,
+            orchestrator,
             "execute",
         ):
             try:
-                return self.orchestrator.execute(
+                return orchestrator.execute(
                     action,
                     arguments,
                 )
-
             except TypeError:
                 try:
-                    return self.orchestrator.execute(
+                    return orchestrator.execute(
                         action=action,
                         arguments=arguments,
                     )
-
                 except TypeError:
-                    return self.orchestrator.execute(
+                    return orchestrator.execute(
                         action,
                         arguments,
                         context,
                     )
 
         if hasattr(
-            self.orchestrator,
+            orchestrator,
             "run",
         ):
             try:
-                return self.orchestrator.run(
+                return orchestrator.run(
                     action,
                     arguments,
                 )
-
             except TypeError:
-                return self.orchestrator.run(
+                return orchestrator.run(
                     action=action,
                     arguments=arguments,
                 )
 
         if callable(
-            self.orchestrator
+            orchestrator
         ):
-            return self.orchestrator(
+            return orchestrator(
                 action,
                 arguments,
             )
@@ -706,9 +943,9 @@ class ARESBrain:
             "a supported execution method."
         )
 
-    # =========================================================
-    # VERIFICATION
-    # =========================================================
+    # ------------------------------------------------------------------
+    # Verification
+    # ------------------------------------------------------------------
 
     def _verify(
         self,
@@ -717,106 +954,46 @@ class ARESBrain:
         result: Any,
     ) -> Any:
         if self.verification_engine is None:
-            return None
+            return _FallbackVerification()
 
-        verifier = self.verification_engine
+        engine = self.verification_engine
 
         if hasattr(
-            verifier,
+            engine,
             "verify",
         ):
             try:
-                return verifier.verify(
+                return engine.verify(
                     action=action,
                     result=result,
                 )
-
             except TypeError:
-                return verifier.verify(
+                try:
+                    return engine.verify(
+                        action,
+                        result,
+                    )
+                except TypeError:
+                    return engine.verify(
+                        result
+                    )
+
+        if callable(engine):
+            try:
+                return engine(
                     action,
                     result,
                 )
-
-        if callable(verifier):
-            return verifier(
-                action,
-                result,
-            )
-
-        return None
-
-    def _verification_success(
-        self,
-        *,
-        verification: Any,
-        result: Any,
-    ) -> bool:
-        if verification is None:
-            return True
-
-        if hasattr(
-            verification,
-            "verified",
-        ):
-            return bool(
-                verification.verified
-            )
-
-        if hasattr(
-            verification,
-            "success",
-        ):
-            return bool(
-                verification.success
-            )
-
-        if isinstance(
-            verification,
-            dict,
-        ):
-            if "verified" in verification:
-                return bool(
-                    verification["verified"]
+            except TypeError:
+                return engine(
+                    result
                 )
 
-            if "success" in verification:
-                return bool(
-                    verification["success"]
-                )
+        return _FallbackVerification()
 
-        return True
-
-    def _verification_reason(
-        self,
-        verification: Any,
-    ) -> str:
-        if verification is None:
-            return ""
-
-        if hasattr(
-            verification,
-            "reason",
-        ):
-            return str(
-                verification.reason or ""
-            )
-
-        if isinstance(
-            verification,
-            dict,
-        ):
-            return str(
-                verification.get(
-                    "reason",
-                    "",
-                )
-            )
-
-        return ""
-
-    # =========================================================
-    # REFLECTION
-    # =========================================================
+    # ------------------------------------------------------------------
+    # Reflection
+    # ------------------------------------------------------------------
 
     def _reflect(
         self,
@@ -827,10 +1004,6 @@ class ARESBrain:
         verification: Any,
         success: bool,
     ) -> Any:
-        """
-        Run the reflection engine.
-        """
-
         if self.reflection_engine is None:
             return None
 
@@ -842,14 +1015,12 @@ class ARESBrain:
         ):
             try:
                 return engine.reflect()
-
             except TypeError:
                 pass
 
         if callable(engine):
             try:
                 return engine()
-
             except TypeError:
                 return engine(
                     result
@@ -857,51 +1028,17 @@ class ARESBrain:
 
         return None
 
-    def _reflection_success(
-        self,
-        *,
-        reflection: Any,
-        fallback: bool,
-    ) -> bool:
-        if reflection is None:
-            return fallback
-
-        if hasattr(
-            reflection,
-            "success",
-        ):
-            return bool(
-                reflection.success
-            )
-
-        if isinstance(
-            reflection,
-            dict,
-        ) and "success" in reflection:
-            return bool(
-                reflection["success"]
-            )
-
-        return fallback
-
-    # =========================================================
-    # RESPONSE
-    # =========================================================
+    # ------------------------------------------------------------------
+    # Response construction
+    # ------------------------------------------------------------------
 
     def _build_tool_response(
         self,
         *,
         action: str,
-        result: Any,
-        verification: Any,
         success: bool,
-        reflection: Any,
+        verification: Any,
     ) -> str:
-        """
-        Convert a verified tool execution
-        into a user-facing response.
-        """
-
         if success:
             return "Action completed."
 
@@ -916,21 +1053,57 @@ class ARESBrain:
             )
 
         return (
-            f"ARES could not complete '{action}'."
+            f"ARES could not complete "
+            f"'{action}'."
         )
 
-    # =========================================================
-    # MEMORY
-    # =========================================================
+    def _verification_reason(
+        self,
+        verification: Any,
+    ) -> str:
+        reason = getattr(
+            verification,
+            "reason",
+            "",
+        )
 
-    def _remember(
+        if reason:
+            return str(reason)
+
+        if isinstance(
+            verification,
+            dict,
+        ):
+            return str(
+                verification.get(
+                    "reason",
+                    verification.get(
+                        "error",
+                        "",
+                    ),
+                )
+            )
+
+        return ""
+
+    # ------------------------------------------------------------------
+    # Memory
+    # ------------------------------------------------------------------
+
+    def _record_working_memory(
+        self,
+        *,
+        fact: Any,
+    ) -> None:
+        self.working_memory.add_fact(
+            fact
+        )
+
+    def _store_memory(
         self,
         *,
         user_input: str,
-        response: str,
-        decision: Any,
-        result: Any,
-        context: Any,
+        result: BrainResult,
     ) -> None:
         if self.memory_bridge is None:
             return
@@ -944,10 +1117,10 @@ class ARESBrain:
             ):
                 bridge.remember(
                     user_input=user_input,
-                    response=response,
-                    decision=decision,
-                    result=result,
-                    context=context,
+                    response=result.response,
+                    decision=result.decision,
+                    result=result.execution_result,
+                    context=result.metadata,
                 )
                 return
 
@@ -956,48 +1129,38 @@ class ARESBrain:
                 "store",
             ):
                 bridge.store(
-                    user_input=user_input,
-                    response=response,
-                    decision=decision,
-                    result=result,
-                    context=context,
+                    user_input,
+                    result.response,
                 )
                 return
 
+            if callable(bridge):
+                bridge(
+                    user_input,
+                    result.response,
+                )
+
         except Exception:
             logger.exception(
-                "Memory update failed."
+                "Long-term memory update failed."
             )
 
-    # =========================================================
-    # GENERIC HELPERS
-    # =========================================================
 
-    def _decision_value(
-        self,
-        decision: Any,
-        name: str,
-        default: Any,
-    ) -> Any:
-        if hasattr(
-            decision,
-            name,
-        ):
-            value = getattr(
-                decision,
-                name,
-            )
+class _FallbackVerification:
+    """
+    Minimal verification result used when no verification
+    engine is connected.
 
-            if value is not None:
-                return value
+    This preserves compatibility with lightweight tests and
+    development configurations.
+    """
 
-        if isinstance(
-            decision,
-            dict,
-        ):
-            return decision.get(
-                name,
-                default,
-            )
+    verified = True
 
-        return default
+    reason = (
+        "No verification engine was connected."
+    )
+
+    confidence = 0.5
+
+    retryable = False
