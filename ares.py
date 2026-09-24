@@ -29,14 +29,18 @@ def main():
 
             if user_input.lower() == "reset":
 
-                ares.ai.reset()
+                ares.reset()
 
                 print("ARES > Conversation reset.")
                 continue
 
-            response = ares.respond(user_input)
+            response = ares.respond(
+                user_input
+            )
 
-            print(f"ARES > {response}")
+            print(
+                f"ARES > {response}"
+            )
             print()
 
     except KeyboardInterrupt:
